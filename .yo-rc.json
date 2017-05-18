@@ -1,0 +1,9 @@
+{
+  "generator-node": {
+    "promptValues": {
+      "authorName": "Lei Xu",
+      "authorEmail": "komushi@gmail.com",
+      "authorUrl": ""
+    }
+  }
+}

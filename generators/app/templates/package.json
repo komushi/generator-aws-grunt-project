@@ -1,0 +1,14 @@
+{
+  "name": "aws-grunt-deploy-example",
+  "version": "1.0.0",
+  "description": "",
+  "author": "",
+  "devDependencies": {
+    "aws-sdk": "latest",
+    "dotenv-extended": "^2.0.0",
+    "grunt": "^1.0.1",
+    "grunt-usage": "^1.1.1",
+    "load-grunt-tasks": "^3.5.2",
+    "grunt-aws-deploy": "latest"
+  }
+}

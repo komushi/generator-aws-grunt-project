@@ -1,0 +1,33 @@
+---
+swagger: "2.0"
+info:
+  version: "2017-02-20T14:56:09Z"
+  title: "S3 API"
+schemes:
+- "https"
+paths:
+  /{bucket}:
+    put:
+      responses: {}
+      x-amazon-apigateway-integration:
+        uri: "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/${LambdaARN}/invocations"
+        passthroughBehavior: "when_no_match"
+        httpMethod: "POST"
+        type: "aws_proxy"
+  /{bucket}/{key}:
+    get:
+      responses: {}
+      x-amazon-apigateway-integration:
+        uri: "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/${LambdaARN}/invocations"
+        passthroughBehavior: "when_no_match"
+        httpMethod: "POST"
+        type: "aws_proxy"
+    post:
+      responses: {}
+      x-amazon-apigateway-integration:
+        uri: "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/${LambdaARN}/invocations"
+        passthroughBehavior: "when_no_match"
+        httpMethod: "POST"
+        type: "aws_proxy"
+x-amazon-apigateway-binary-media-types:
+- "*/*"

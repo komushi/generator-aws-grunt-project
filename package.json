@@ -1,6 +1,6 @@
 {
   "name": "generator-aws-grunt-project",
-  "version": "0.0.0",
+  "version": "0.0.2",
   "description": "Generate a boilerplate project(microservices) which utilizes aws-grunt-deploy to deploy to AWS including CI/CD features.",
   "homepage": "http://github.com/komushi/generator-aws-grunt-project",
   "author": {
@@ -29,8 +29,10 @@
     "jest-cli": "^19.0.1"
   },
   "dependencies": {
-    "yeoman-generator": "^1.0.0",
     "chalk": "^1.1.3",
+    "gruntfile-editor": "^1.2.1",
+    "node-schema-object": "^3.3.4",
+    "yeoman-generator": "^1.0.0",
     "yosay": "^2.0.0"
   },
   "jest": {

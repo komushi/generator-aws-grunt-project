@@ -1,0 +1,139 @@
+#
+# © 2016, Amazon.com, Inc. or its affiliates.
+#
+# This source code is subject to the terms found in the AWS Enterprise Customer Agreement
+# effective September 26, 2008, the Amendment effective May 8, 2014, and the
+# AWS Professional Services Statement of Work between Amazon Web Services, Inc. and
+# Philips Healthcare Informatics, Inc. with SOW ID#: E020824628.
+#
+
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Setup AWS Resources for S3 API Service Backend
+Parameters:
+  ServiceName:
+    Description: Name of Service
+    Type: String
+  DeployStage:
+    Default: dev
+    Description: The stage this stack is being deployed to.
+    Type: String
+  PreExistingAPIID:
+    Description: "Optional API ID of pre-existing API GW endpoint. Leave empty to have created and managed by this stack."
+    Type: String
+    Default: ""
+
+# Blob-Meta Parameters
+
+  ServiceLambda:
+    Description: Name of Service Handler Lambda
+    Type: String
+  # S3BucketPrefix:
+  #   Description: Name of DynamoDb table for S3 details meta
+  #   Type: String
+
+
+# Custom Auth Parameters
+
+  # CustomAuthLambda:
+  #   Description: Name of Custom Auth Lambda
+  #   Type: String
+
+Conditions:
+  NeedsNewAPI: !Equals [!Ref PreExistingAPIID, ""]
+
+Resources:
+  # S3Bucket:
+  #   Type: AWS::S3::Bucket
+  #   Properties:
+  #     AccessControl: PublicReadWrite
+  #     BucketName: !Sub "${S3BucketPrefix}mybucket"
+  RestApi:
+    Condition: NeedsNewAPI
+    Type: AWS::CloudFormation::Stack
+    Properties:
+       TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/api-gw-rest-api.yaml
+       TimeoutInMinutes: '10'
+       Parameters:
+         APIName: !Sub "${ServiceName}-${DeployStage}-API"
+  MainLambdaRoles:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3-eu-west-1.amazonaws.com/rosa-lambda-artifacts/cfn/lambda-roles-s3.yaml
+      TimeoutInMinutes: '10'
+  MainLambda:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/api-gw-lambda.yaml
+      TimeoutInMinutes: '10'
+      Parameters:
+        LambdaFunctionName: !Ref ServiceLambda
+        LambdaExecutionRoleARN: !GetAtt [MainLambdaRoles, Outputs.LambdaExecutionRoleARN]
+
+# Custom Auth Resources
+
+  # LambdaInvokePolicy:
+  #   Type: "AWS::IAM::ManagedPolicy"
+  #   Properties:
+  #     Description: "Policy for allowing Lambda Invoke"
+  #     Path: "/"
+  #     PolicyDocument:
+  #       Version: "2012-10-17"
+  #       Statement:
+  #         -
+  #           Effect: Allow
+  #           Action:
+  #           - "lambda:InvokeFunction"
+  #           Resource: "*"
+  # AuthorizerInvokeRole:
+  #   Type: "AWS::IAM::Role"
+  #   Properties:
+  #     Path: "/"
+  #     AssumeRolePolicyDocument:
+  #       Version: "2012-10-17"
+  #       Statement:
+  #         -
+  #           Effect: "Allow"
+  #           Principal:
+  #             Service:
+  #               - "apigateway.amazonaws.com"
+  #           Action:
+  #             - "sts:AssumeRole"
+  #     ManagedPolicyArns:
+  #       - Ref: LambdaInvokePolicy
+  # CustomAuthLambdaRoles:
+  #   Type: AWS::CloudFormation::Stack
+  #   Properties:
+  #     TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/lambda-roles.yaml
+  #     TimeoutInMinutes: '10'
+  # CustomAuth:
+  #   Type: AWS::CloudFormation::Stack
+  #   Properties:
+  #     TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/vlambda.yaml
+  #     TimeoutInMinutes: '10'
+  #     Parameters:
+  #       LambdaFunctionName: !Ref CustomAuthLambda
+  #       LambdaExecutionRoleARN: !GetAtt [CustomAuthLambdaRoles, Outputs.LambdaExecutionRoleARN]
+  #       HandlerName: index.authorize
+
+
+Outputs:
+  APIID:
+    Description: Rest API ID
+    Value: !If [ NeedsNewAPI, !GetAtt [ RestApi, Outputs.APIID ], !Ref PreExistingAPIID ]
+  # BlobMetaLambdaARN:
+  #   Description: 'Blob Meta Lambda ARN'
+  #   Value: !GetAtt [ BlobMetaLambda, Outputs.LambdaARN ]
+  AwsRegion:
+    Description: AwsRegion
+    Value: !Ref AWS::Region
+  LambdaARN:
+    Description: 'Blob Meta Lambda ARN'
+    Value: !GetAtt [ MainLambda, Outputs.LambdaARN ]
+  # CustomAuthLambdaARN:
+  #   Description: 'Custom Auth Lambda ARN'
+  #   Value: !GetAtt [ CustomAuth, Outputs.LambdaARN ]
+  # CustomAuthLambdaRoleARN:
+  #   Description: Custom Authorizer Invoke Role ARN
+  #   Value:
+  #     !GetAtt [AuthorizerInvokeRole, "Arn"]

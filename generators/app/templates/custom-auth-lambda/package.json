@@ -1,0 +1,16 @@
+{
+  "name": "custom-auth-lambda",
+  "version": "1.0.0",
+  "description": "Blob Repo custom authorizer Lambda function",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "mocha $(find test/unit -name '*.js')",
+    "coverage": "istanbul cover _mocha"
+  },
+  "dependencies": {
+    "rosa-api-gw-custom-auth": "^1.0.0",
+    "rosa-logger": "latest"
+  },
+  "author": "",
+  "license": "ISC"
+}

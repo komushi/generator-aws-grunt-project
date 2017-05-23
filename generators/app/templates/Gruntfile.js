@@ -17,9 +17,11 @@ module.exports = function (grunt) { // eslint-disable-line func-names
   const localHostname = os.hostname().toLowerCase();
   
   // service-lambda config
+  const serviceLambdaConfigContents = '';
   const serviceLambdaConfig = '';
 
   // custom-auth-lambda config
+  const customAuthLambdaConfigContents = '';
   const customAuthLambdaConfig = '';
   
 
@@ -133,7 +135,7 @@ module.exports = function (grunt) { // eslint-disable-line func-names
         deployStage,
         serviceName,
         cfnTemplateFile: 'integration/cfn/setup_resources.yaml',
-        swaggerFile: 'integration/swaggers/service_swagger.yaml',
+        swaggerFile: 'integration/swagger/service_swagger.yaml',
         config: cfnConfig
       }
     },

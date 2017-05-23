@@ -2,7 +2,7 @@
 swagger: "2.0"
 info:
   version: "1"
-  title: "S3 API"
+  title: "TODO API"
 schemes:
 - "https"
 paths:
@@ -36,5 +36,4 @@ paths:
         passthroughBehavior: "when_no_match"
         httpMethod: "POST"
         type: "aws_proxy"
-x-amazon-apigateway-binary-media-types:
-- "*/*"
+

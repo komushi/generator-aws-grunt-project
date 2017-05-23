@@ -103,9 +103,7 @@ module.exports = class extends Generator {
   }
 
   writing() {
-    // this.fs.copy(
-    //   this.templatePath(),this.destinationPath()
-    // );
+
 
     /***************************/
     /*  package.json process   */
@@ -180,11 +178,13 @@ module.exports = class extends Generator {
       errorOnMissing: true
     });
 
-    const serviceLambdaConfigString = stringifyObject(serviceLambdaConfig.toObject())
+    const serviceLambdaConfigContents = stringifyObject(serviceLambdaConfig.toObject())
       .replace("'`", '`')
       .replace("`'", '`');
 
-    editor.insertVariable('serviceLambdaConfig', serviceLambdaConfigString);
+    editor.insertVariable('serviceLambdaConfigContents', serviceLambdaConfigContents);
+
+    editor.insertVariable('serviceLambdaConfig', 'dotenv.load(serviceLambdaConfigContents)');
 
     let customAuthLambdaConfigPath, customAuthLambdaConfigDefaults, customAuthLambdaConfigSchema,
       customAuthLambdaConfigDev, customAuthLambdaConfigTest, customAuthLambdaConfigProd;
@@ -211,11 +211,14 @@ module.exports = class extends Generator {
         errorOnMissing: true
       });
 
-      const customAuthLambdaConfigString = stringifyObject(customAuthLambdaConfig.toObject())
+      const customAuthLambdaConfigContents = stringifyObject(customAuthLambdaConfig.toObject())
         .replace("'`", '`')
         .replace("`'", '`');
 
-      editor.insertVariable('customAuthLambdaConfig', customAuthLambdaConfigString);
+      editor.insertVariable('customAuthLambdaConfigContents', customAuthLambdaConfigContents);
+
+      editor.insertVariable('customAuthLambdaConfig', 'dotenv.load(customAuthLambdaConfigContents)');
+
     }
 
 
@@ -377,6 +380,23 @@ module.exports = class extends Generator {
       this.fs.write(customAuthLambdaConfigDev, envCustomAuthDev);
       this.fs.write(customAuthLambdaConfigTest, envCustomAuthTest);
       this.fs.write(customAuthLambdaConfigProd, envCustomAuthProd);
+    }
+
+    /***************************/
+    /*    copying files        */
+    /***************************/
+    this.fs.copy(
+      this.templatePath('service-lambda'), this.destinationPath(this.props.serviceLambda)
+    );
+
+    this.fs.copy(
+      this.templatePath('integration'), this.destinationPath('integration')
+    );
+
+    if (this.props.useCustomAuth) {
+      this.fs.copy(
+        this.templatePath('custom-auth-lambda'), this.destinationPath(this.props.customAuthLambda)
+      );
     }
   }
 

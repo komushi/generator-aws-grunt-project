@@ -159,16 +159,50 @@ module.exports = class extends Generator {
     editor.insertVariable('deployStage', `process.env.DEPLOY_STAGE || "${this.props.stage}"`);
 
     // add serviceLambdaConfig const
+    // serviceLambdaConfigPath
     const serviceLambdaConfigPath = path.join(`${this.props.serviceLambda}`, 'config', '.env.' + `${this.props.stage}`);
-    editor.insertVariable('serviceLambdaConfigPath', `"${serviceLambdaConfigPath}"`);
-
-    // add serviceLambdaConfigDefaults const
+    // serviceLambdaConfigDefaults
     const serviceLambdaConfigDefaults = path.join(`${this.props.serviceLambda}`, 'config', '.env.defaults');
-    editor.insertVariable('serviceLambdaConfigDefaults', `"${serviceLambdaConfigDefaults}"`);
-
-    // add serviceLambdaConfigSchema const
+    // serviceLambdaConfigSchema
     const serviceLambdaConfigSchema = path.join(`${this.props.serviceLambda}`, 'config', '.env.schema');
-    editor.insertVariable('serviceLambdaConfigSchema', `"${serviceLambdaConfigSchema}"`);
+
+    const LambdaConfig = new SchemaObject({
+      path: String,
+      defaults: String,
+      schema: String,
+      errorOnMissing: Boolean
+    });
+
+    const serviceLambdaConfig = new LambdaConfig({
+      path: serviceLambdaConfigPath,
+      defaults: serviceLambdaConfigDefaults,
+      schema: serviceLambdaConfigSchema,
+      errorOnMissing: true
+    });
+
+    editor.insertVariable('serviceLambdaConfig', stringifyObject(serviceLambdaConfig.toObject()));
+
+    let customAuthLambdaConfigPath, customAuthLambdaConfigDefaults, customAuthLambdaConfigSchema;
+
+    // add customAuthLambdaConfig const
+    if (this.props.useCustomAuth) {
+      // customAuthLambdaConfigPath
+      customAuthLambdaConfigPath = path.join(`${this.props.customAuthLambda}`, 'config', '.env.' + `${this.props.stage}`);
+      // customAuthLambdaConfigDefaults
+      customAuthLambdaConfigDefaults = path.join(`${this.props.customAuthLambda}`, 'config', '.env.defaults');
+      // customAuthLambdaConfigDefaults
+      customAuthLambdaConfigSchema = path.join(`${this.props.customAuthLambda}`, 'config', '.env.schema');
+
+      const customAuthLambdaConfig = new LambdaConfig({
+        path: customAuthLambdaConfigPath,
+        defaults: customAuthLambdaConfigDefaults,
+        schema: customAuthLambdaConfigSchema,
+        errorOnMissing: true
+      });
+
+      editor.insertVariable('customAuthLambdaConfig', stringifyObject(customAuthLambdaConfig.toObject()));
+    }
+
 
     // add cfnConfig const
     let cfnConfigScript;
@@ -188,7 +222,10 @@ module.exports = class extends Generator {
       dist_folder: String
     });
     const LambdaPackage = new SchemaObject({ options: PackageOptions });
-    const PackageLambda = new SchemaObject({ serviceLambda: LambdaPackage, customAuthLambda: LambdaPackage });
+    const PackageLambda = new SchemaObject({
+      serviceLambda: LambdaPackage,
+      customAuthLambda: LambdaPackage
+    });
 
     const servicePackageOptions = new PackageOptions({
       package_folder: this.props.serviceLambda,
@@ -204,7 +241,10 @@ module.exports = class extends Generator {
         dist_folder: 'build'
       });
       const customAuthLambdaPackage = new LambdaPackage({ options: customAuthPackageOptions });
-      packageLambda = new PackageLambda({ serviceLambda: serviceLambdaPackage, customAuthLambda: customAuthLambdaPackage });
+      packageLambda = new PackageLambda({
+        serviceLambda: serviceLambdaPackage,
+        customAuthLambda: customAuthLambdaPackage
+      });
       
     } else {
       packageLambda = new PackageLambda({ serviceLambda: serviceLambdaPackage });
@@ -214,9 +254,24 @@ module.exports = class extends Generator {
     
     // Add deploy_lambda to init config
     let awsRegion = 'awsRegion';
-    const DeployOptions = new SchemaObject({ region: String, timeout: Number, memory: Number, env: String, handler: String });
-    const LambdaDeploy = new SchemaObject({ arn: String, function: String, options: DeployOptions }, { preserveNull: true });
-    const PackageDeploy = new SchemaObject({ serviceLambda: LambdaDeploy, customAuthLambda: LambdaDeploy });
+    const DeployOptions = new SchemaObject({ 
+      region: String,
+      timeout: Number,
+      memory: Number,
+      env: String,
+      handler: String 
+    });
+    const LambdaDeploy = new SchemaObject({
+      arn: String,
+      function: String,
+      options: DeployOptions
+    },{ 
+      preserveNull: true 
+    });
+    const PackageDeploy = new SchemaObject({
+      serviceLambda: LambdaDeploy,
+      customAuthLambda: LambdaDeploy
+    });
 
     const serviceDeployOptions = new DeployOptions({
       region: 'awsRegion',
@@ -268,25 +323,25 @@ module.exports = class extends Generator {
     /***************************/
     /*    env files process    */
     /***************************/
-    let envContentsStage;
-    if (this.props.useCustomAuth) {
-      envContentsStage = envfile.stringifySync({
-        ServiceLambda: `'${[this.props.name, this.props.serviceLambda, this.props.stage].join('-')}'`,
-        CustomAuthLambda: `'${[this.props.name, this.props.customAuthLambda, this.props.stage].join('-')}'`,
-      });
-    } else {
-      envContentsStage = envfile.stringifySync({
-        ServiceLambda: `'${[this.props.name, this.props.serviceLambda, this.props.stage].join('-')}'`
-      });
-    }
-
-    this.fs.write(serviceLambdaConfigPath, envContentsStage);
+    const envStageService = envfile.stringifySync({
+      ServiceLambda: `'${[this.props.name, this.props.serviceLambda, this.props.stage].join('-')}'`
+    });
+    this.fs.write(serviceLambdaConfigPath, envStageService);
     this.fs.write(serviceLambdaConfigDefaults, '');
-    this.fs.write(serviceLambdaConfigSchema, envfile.stringifySync({
-      ServiceLambda: '',
-      CustomAuthLambda: ''
-    }));
+    this.fs.write(serviceLambdaConfigSchema, envfile.stringifySync({ ServiceLambda: '' }));
 
+    /***************************************/
+    /*    env files process custom-auth    */
+    /***************************************/
+    if (this.props.useCustomAuth) {
+      const envStageCustomAuth = envfile.stringifySync({
+        CustomAuthLambda: `'${[this.props.name, this.props.customAuthLambda, this.props.stage].join('-')}'`
+      });
+
+      this.fs.write(customAuthLambdaConfigPath, envStageCustomAuth);
+      this.fs.write(customAuthLambdaConfigDefaults, '');
+      this.fs.write(customAuthLambdaConfigSchema, envfile.stringifySync({ CustomAuthLambda: '' }));
+    }
   }
 
   install() {

@@ -35,7 +35,6 @@ module.exports = function (grunt) { // eslint-disable-line func-names
     ServiceLambda: serviceLambdaConfig.ServiceLambda
   };
 
-  // const swaggerFileRef = 'integration/swaggers/blobrepo_swagger.yaml';
   const awsRegion = process.env.AWS_DEFAULT_REGION || 'ap-northeast-1';
   process.env.AWS_DEFAULT_REGION = awsRegion;      // Set if not already set
 
@@ -131,7 +130,7 @@ module.exports = function (grunt) { // eslint-disable-line func-names
         deployStage,
         serviceName,
         cfnTemplateFile: 'integration/cfn/setup_resources.yaml',
-        swaggerFile: 'integration/swagger/s3-api-swagger.yaml',
+        swaggerFile: 'integration/swaggers/service_swagger.yaml',
         config: cfnConfig
       }
     },
@@ -154,44 +153,44 @@ module.exports = function (grunt) { // eslint-disable-line func-names
         }
       }
     },
-*/
+
     package_lambda: {
-      's3-lambdas': {
+      serviceLambda: {
         options: {
-          package_folder: 's3-lambdas'
+          package_folder: 'service-lambda'
         }
       }
-      // 'custom-auth': {
-      //   options: {
-      //     package_folder: 'custom-auth-lambda'
-      //   }
-      // }
+      'custom-auth': {
+        options: {
+          package_folder: 'custom-auth-lambda'
+        }
+      }
     },
     deploy_lambda: {
-      's3-lambdas': {
+      serviceLambda: {
         arn: null, // bug in the plugin requires you to specify null if function name is specified
-        function: s3LambdasConfig.ServiceLambda,
+        function: serviceLambdaConfig.ServiceLambda,
         options: {
           region: awsRegion,
           timeout: 45,
           memory: 512,
-          env: s3LambdasConfig,
+          env: serviceLambdaConfig,
           handler: 'src/index.handler'
         }
       }
-      // 'custom-auth': {
-      //   arn: null, // bug in the plugin requires you to specify null if function name is specified
-      //   function: customAuthConfig.CustAuthLambda,
-      //   options: {
-      //     region: awsRegion,
-      //     timeout: 45,
-      //     memory: 512,
-      //     env: customAuthConfig,
-      //     handler: 'src/index.authorize'
-      //   }
-      // }
+      'custom-auth': {
+        arn: null, // bug in the plugin requires you to specify null if function name is specified
+        function: customAuthConfig.CustAuthLambda,
+        options: {
+          region: awsRegion,
+          timeout: 45,
+          memory: 512,
+          env: customAuthConfig,
+          handler: 'src/index.authorize'
+        }
+      }
     },
-
+*/
     clean: {
       folder: ['reports'],
     }

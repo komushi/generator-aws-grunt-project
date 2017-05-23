@@ -69,12 +69,6 @@ module.exports = class extends Generator {
       },
       {
         type: 'input',
-        name: 'stage',
-        message: 'Project Deployment Stage',
-        default: 'dev'
-      },
-      {
-        type: 'input',
         name: 'serviceLambda',
         message: 'The name of the service lambda(API Gateway)',
         default: 'service-lambda'
@@ -156,15 +150,21 @@ module.exports = class extends Generator {
     editor.insertVariable('serviceName', `"${this.props.name}"`);
 
     // add deployStage const
-    editor.insertVariable('deployStage', `process.env.DEPLOY_STAGE || "${this.props.stage}"`);
+    editor.insertVariable('deployStage', `process.env.DEPLOY_STAGE || "dev"`);
 
     // add serviceLambdaConfig const
     // serviceLambdaConfigPath
-    const serviceLambdaConfigPath = path.join(`${this.props.serviceLambda}`, 'config', '.env.' + `${this.props.stage}`);
+    const serviceLambdaConfigPath = '`' + path.join(this.props.serviceLambda, 'config', '.env.') + '${deployStage}`';
     // serviceLambdaConfigDefaults
-    const serviceLambdaConfigDefaults = path.join(`${this.props.serviceLambda}`, 'config', '.env.defaults');
+    const serviceLambdaConfigDefaults = path.join(this.props.serviceLambda, 'config', '.env.defaults');
     // serviceLambdaConfigSchema
-    const serviceLambdaConfigSchema = path.join(`${this.props.serviceLambda}`, 'config', '.env.schema');
+    const serviceLambdaConfigSchema = path.join(this.props.serviceLambda, 'config', '.env.schema');
+    // serviceLambdaConfigDev
+    const serviceLambdaConfigDev = path.join(this.props.serviceLambda, 'config', '.env.dev');
+    // serviceLambdaConfigTest
+    const serviceLambdaConfigTest = path.join(this.props.serviceLambda, 'config', '.env.test');
+    // serviceLambdaConfigProd
+    const serviceLambdaConfigProd = path.join(this.props.serviceLambda, 'config', '.env.prod');
 
     const LambdaConfig = new SchemaObject({
       path: String,
@@ -180,18 +180,29 @@ module.exports = class extends Generator {
       errorOnMissing: true
     });
 
-    editor.insertVariable('serviceLambdaConfig', stringifyObject(serviceLambdaConfig.toObject()));
+    const serviceLambdaConfigString = stringifyObject(serviceLambdaConfig.toObject())
+      .replace("'`", '`')
+      .replace("`'", '`');
 
-    let customAuthLambdaConfigPath, customAuthLambdaConfigDefaults, customAuthLambdaConfigSchema;
+    editor.insertVariable('serviceLambdaConfig', serviceLambdaConfigString);
+
+    let customAuthLambdaConfigPath, customAuthLambdaConfigDefaults, customAuthLambdaConfigSchema,
+      customAuthLambdaConfigDev, customAuthLambdaConfigTest, customAuthLambdaConfigProd;
 
     // add customAuthLambdaConfig const
     if (this.props.useCustomAuth) {
       // customAuthLambdaConfigPath
-      customAuthLambdaConfigPath = path.join(`${this.props.customAuthLambda}`, 'config', '.env.' + `${this.props.stage}`);
+      customAuthLambdaConfigPath = '`' + path.join(this.props.customAuthLambda, 'config', '.env.') + '${deployStage}`';
       // customAuthLambdaConfigDefaults
-      customAuthLambdaConfigDefaults = path.join(`${this.props.customAuthLambda}`, 'config', '.env.defaults');
+      customAuthLambdaConfigDefaults = path.join(this.props.customAuthLambda, 'config', '.env.defaults');
       // customAuthLambdaConfigDefaults
-      customAuthLambdaConfigSchema = path.join(`${this.props.customAuthLambda}`, 'config', '.env.schema');
+      customAuthLambdaConfigSchema = path.join(this.props.customAuthLambda, 'config', '.env.schema');
+      // customAuthLambdaConfigDev
+      customAuthLambdaConfigDev = path.join(this.props.customAuthLambda, 'config', '.env.dev');
+      // customAuthLambdaConfigTest
+      customAuthLambdaConfigTest = path.join(this.props.customAuthLambda, 'config', '.env.test');
+      // customAuthLambdaConfigProd
+      customAuthLambdaConfigProd = path.join(this.props.customAuthLambda, 'config', '.env.prod');
 
       const customAuthLambdaConfig = new LambdaConfig({
         path: customAuthLambdaConfigPath,
@@ -200,7 +211,11 @@ module.exports = class extends Generator {
         errorOnMissing: true
       });
 
-      editor.insertVariable('customAuthLambdaConfig', stringifyObject(customAuthLambdaConfig.toObject()));
+      const customAuthLambdaConfigString = stringifyObject(customAuthLambdaConfig.toObject())
+        .replace("'`", '`')
+        .replace("`'", '`');
+
+      editor.insertVariable('customAuthLambdaConfig', customAuthLambdaConfigString);
     }
 
 
@@ -323,24 +338,45 @@ module.exports = class extends Generator {
     /***************************/
     /*    env files process    */
     /***************************/
-    const envStageService = envfile.stringifySync({
-      ServiceLambda: `'${[this.props.name, this.props.serviceLambda, this.props.stage].join('-')}'`
+    const envServiceDev = envfile.stringifySync({
+      ServiceLambda: `'${[this.props.name, this.props.serviceLambda, 'dev'].join('-')}'`
     });
-    this.fs.write(serviceLambdaConfigPath, envStageService);
+
+    const envServiceTest = envfile.stringifySync({
+      ServiceLambda: `'${[this.props.name, this.props.serviceLambda, 'test'].join('-')}'`
+    });
+
+    const envServiceProd = envfile.stringifySync({
+      ServiceLambda: `'${[this.props.name, this.props.serviceLambda].join('-')}'`
+    });
+    
     this.fs.write(serviceLambdaConfigDefaults, '');
     this.fs.write(serviceLambdaConfigSchema, envfile.stringifySync({ ServiceLambda: '' }));
+    this.fs.write(serviceLambdaConfigDev, envServiceDev);
+    this.fs.write(serviceLambdaConfigTest, envServiceTest);
+    this.fs.write(serviceLambdaConfigProd, envServiceProd);
 
     /***************************************/
     /*    env files process custom-auth    */
     /***************************************/
     if (this.props.useCustomAuth) {
-      const envStageCustomAuth = envfile.stringifySync({
-        CustomAuthLambda: `'${[this.props.name, this.props.customAuthLambda, this.props.stage].join('-')}'`
+      const envCustomAuthDev = envfile.stringifySync({
+        CustomAuthLambda: `'${[this.props.name, this.props.customAuthLambda, 'dev'].join('-')}'`
       });
 
-      this.fs.write(customAuthLambdaConfigPath, envStageCustomAuth);
+      const envCustomAuthTest = envfile.stringifySync({
+        CustomAuthLambda: `'${[this.props.name, this.props.customAuthLambda, 'test'].join('-')}'`
+      });
+
+      const envCustomAuthProd = envfile.stringifySync({
+        CustomAuthLambda: `'${[this.props.name, this.props.customAuthLambda].join('-')}'`
+      });
+
       this.fs.write(customAuthLambdaConfigDefaults, '');
       this.fs.write(customAuthLambdaConfigSchema, envfile.stringifySync({ CustomAuthLambda: '' }));
+      this.fs.write(customAuthLambdaConfigDev, envCustomAuthDev);
+      this.fs.write(customAuthLambdaConfigTest, envCustomAuthTest);
+      this.fs.write(customAuthLambdaConfigProd, envCustomAuthProd);
     }
   }
 

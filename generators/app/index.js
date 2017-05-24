@@ -8,8 +8,7 @@ const os = require('os');
 const SchemaObject = require('schema-object');
 const stringifyObject = require('stringify-object');
 const envfile = require('envfile');
-// const _ = require('lodash');
-// const extend = _.merge;
+const yaml = require('js-yaml');
 
 module.exports = class extends Generator {
 
@@ -383,15 +382,44 @@ module.exports = class extends Generator {
     }
 
     /***************************/
+    /*    swagger process      */
+    /***************************/
+    const swaggerJson = yaml.safeLoad(this.fs.read(this.templatePath('integration/swagger/service_swagger.yaml')));
+    
+
+    swaggerJson.info.title = 'API for ' + this.props.description;
+
+    // swaggerJson.paths['/{fruit}'].keys((path) => {
+    //   path['x-amazon-apigateway-integration'].uri = 'abc';
+    // });
+    const paths = swaggerJson.paths['/{fruit}'];
+
+    const arnArray = ['arn', 'aws', 'apigateway', this.props.region, 'lambda', 'path/2015-03-31/functions/${LambdaARN}/invocations'];
+    Object.keys(paths).forEach(function(key) {
+      paths[key]['x-amazon-apigateway-integration'].uri = arnArray.join(':');
+    });
+
+    // console.log(JSON.stringify(swaggerJson));
+
+    const swaggerYaml = yaml.safeDump(swaggerJson, {
+      'lineWidth': '120'
+    });
+
+    this.fs.write(this.destinationPath('integration/swagger/service_swagger.yaml'), swaggerYaml);
+
+    // console.log(swaggerYaml);    
+
+
+    /***************************/
     /*    copying files        */
     /***************************/
     this.fs.copy(
       this.templatePath('service-lambda'), this.destinationPath(this.props.serviceLambda)
     );
 
-    this.fs.copy(
-      this.templatePath('integration'), this.destinationPath('integration')
-    );
+    // this.fs.copy(
+    //   this.templatePath('integration'), this.destinationPath('integration')
+    // );
 
     if (this.props.useCustomAuth) {
       this.fs.copy(

@@ -6,7 +6,7 @@ info:
 schemes:
 - "https"
 paths:
-  /{bucket}:
+  /{fruit}:
     put:
       responses: {}
       x-amazon-apigateway-integration:
@@ -14,7 +14,6 @@ paths:
         passthroughBehavior: "when_no_match"
         httpMethod: "POST"
         type: "aws_proxy"
-  /{bucket}/{key}:
     get:
       responses: {}
       x-amazon-apigateway-integration:

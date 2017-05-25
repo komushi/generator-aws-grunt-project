@@ -1,6 +1,6 @@
 {
   "name": "generator-aws-grunt-project",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Generate a boilerplate project(microservices) which utilizes aws-grunt-deploy to deploy to AWS including CI/CD features.",
   "homepage": "http://github.com/komushi/generator-aws-grunt-project",
   "author": {

@@ -54,12 +54,12 @@ module.exports = class extends Generator {
         message: 'Version',
         default: this.props.version
       }, 
-      {
-        type: 'input',
-        name: 'homepage',
-        message: 'Project homepage url',
-        default: this.props.homepage
-      }, 
+      // {
+      //   type: 'input',
+      //   name: 'homepage',
+      //   message: 'Project homepage url',
+      //   default: this.props.homepage
+      // }, 
       {
         type: 'input',
         name: 'region',
@@ -224,7 +224,7 @@ module.exports = class extends Generator {
     // add cfnConfig const
     let cfnConfigScript;
     if (this.props.useCustomAuth) {
-      cfnConfigScript = '{ ServiceLambda: serviceLambdaConfig.ServiceLambda, CustomAuthLambda: customAuthConfig.CustAuthLambda }';
+      cfnConfigScript = '{ ServiceLambda: serviceLambdaConfig.ServiceLambda, CustomAuthLambda: customAuthLambdaConfig.CustomAuthLambda }';
     } else {
       cfnConfigScript = '{ ServiceLambda: serviceLambdaConfig.ServiceLambda }';
     }
@@ -291,7 +291,7 @@ module.exports = class extends Generator {
     });
 
     const serviceDeployOptions = new DeployOptions({
-      region: 'awsRegion',
+      region: 'awsRegion1',
       timeout: 45,
       memory: 512,
       env: 'serviceLambdaConfig',
@@ -308,15 +308,15 @@ module.exports = class extends Generator {
 
     if (this.props.useCustomAuth) {
       const customAuthDeployOptions = new DeployOptions({
-        region: 'awsRegion',
+        region: 'awsRegion2',
         timeout: 45,
         memory: 512,
-        env: 'customAuthConfig',
+        env: 'customAuthLambdaConfig',
         handler: 'src/index.handler'
       });
       const customAuthLambdaDeploy = new LambdaDeploy({ 
         arn: null,
-        function: 'customAuthConfig.CustAuthLambda',
+        function: 'customAuthLambdaConfig.CustomAuthLambda',
         options: customAuthDeployOptions
       });
       packageDeploy = new PackageDeploy({ serviceLambda: serviceLambdaDeploy, customAuthLambda: customAuthLambdaDeploy });
@@ -326,10 +326,11 @@ module.exports = class extends Generator {
     }
 
     const deployLambdaConifg = stringifyObject(packageDeploy.toObject())
-      .replace("'awsRegion'", 'awsRegion')
-      .replace("'customAuthConfig'", 'customAuthConfig')
+      .replace("'awsRegion1'", 'awsRegion')
+      .replace("'awsRegion2'", 'awsRegion')
+      .replace("'customAuthLambdaConfig'", 'customAuthLambdaConfig')
       .replace("'serviceLambdaConfig'", 'serviceLambdaConfig')
-      .replace("'customAuthConfig.CustAuthLambda'", 'customAuthConfig.CustAuthLambda')
+      .replace("'customAuthLambdaConfig.CustomAuthLambda'", 'customAuthLambdaConfig.CustomAuthLambda')
       .replace("'serviceLambdaConfig.ServiceLambda'", 'serviceLambdaConfig.ServiceLambda');
 
     editor.insertConfig('deploy_lambda', deployLambdaConifg);
@@ -385,41 +386,50 @@ module.exports = class extends Generator {
     /*    swagger process      */
     /***************************/
     const swaggerJson = yaml.safeLoad(this.fs.read(this.templatePath('integration/swagger/service_swagger.yaml')));
-    
+    swaggerJson.info.title = `API for ${this.props.name}`;
 
-    swaggerJson.info.title = 'API for ' + this.props.description;
+    // remove custom-authorizer
+    if (!this.props.useCustomAuth) {
+      const paths = swaggerJson.paths['/{fruit}'];
 
-    // swaggerJson.paths['/{fruit}'].keys((path) => {
-    //   path['x-amazon-apigateway-integration'].uri = 'abc';
-    // });
-    const paths = swaggerJson.paths['/{fruit}'];
-
-    const arnArray = ['arn', 'aws', 'apigateway', this.props.region, 'lambda', 'path/2015-03-31/functions/${LambdaARN}/invocations'];
-    Object.keys(paths).forEach(function(key) {
-      paths[key]['x-amazon-apigateway-integration'].uri = arnArray.join(':');
-    });
-
-    // console.log(JSON.stringify(swaggerJson));
+      Object.keys(paths).forEach(function(key) {
+        delete paths[key].security;
+      });
+    }
 
     const swaggerYaml = yaml.safeDump(swaggerJson, {
       'lineWidth': '120'
     });
 
     this.fs.write(this.destinationPath('integration/swagger/service_swagger.yaml'), swaggerYaml);
+ 
+    /***************************/
+    /*      cfn process        */
+    /***************************/
+    const cfnJson = yaml.safeLoad(this.fs.read(this.templatePath('integration/cfn/setup_resources.yaml')));
+    cfnJson.Description = `Setup AWS Resources for ${this.props.name} API Service Backend`;
 
-    // console.log(swaggerYaml);    
+    if (!this.props.useCustomAuth) {
+      delete cfnJson.Parameters.CustomAuthLambdaName;
+      delete cfnJson.Resources.LambdaInvokePolicy;
+      delete cfnJson.Resources.AuthorizerInvokeRole;
+      delete cfnJson.Resources.CustomAuthLambdaRoles;
+      delete cfnJson.Resources.CustomAuth;
+      delete cfnJson.Outputs.CustomAuthLambdaRoleARN;
+      delete cfnJson.Outputs.CustomAuthLambdaARN;
+    }
 
+    const cfnYaml = yaml.safeDump(cfnJson, {
+      'lineWidth': '120'
+    });
 
+    this.fs.write(this.destinationPath('integration/cfn/setup_resources.yaml'), cfnYaml);
     /***************************/
     /*    copying files        */
     /***************************/
     this.fs.copy(
       this.templatePath('service-lambda'), this.destinationPath(this.props.serviceLambda)
     );
-
-    // this.fs.copy(
-    //   this.templatePath('integration'), this.destinationPath('integration')
-    // );
 
     if (this.props.useCustomAuth) {
       this.fs.copy(

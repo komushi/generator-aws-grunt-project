@@ -31,7 +31,7 @@ Resources:
     Condition: NeedsNewAPI
     Type: AWS::CloudFormation::Stack
     Properties:
-       TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/api-gw-rest-api.yaml
+       TemplateURL: https://raw.githubusercontent.com/komushi/grunt-aws-deploy/master/cfn/api-gw-rest-api.yaml
        TimeoutInMinutes: '10'
        Parameters:
          APIName:
@@ -39,12 +39,12 @@ Resources:
   ServiceLambdaRolesStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/lambda-roles.yaml
+      TemplateURL: https://raw.githubusercontent.com/komushi/grunt-aws-deploy/master/cfn/lambda-roles-s3.yaml
       TimeoutInMinutes: '10'
   ServiceLambdaStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/api-gw-lambda.yaml
+      TemplateURL: https://raw.githubusercontent.com/komushi/grunt-aws-deploy/master/cfn/api-gw-lambda.yaml
       TimeoutInMinutes: '10'
       Parameters:
         LambdaFunctionName: 
@@ -86,12 +86,12 @@ Resources:
   CustomAuthLambdaRoles:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: http://yaml-cfn-templates.s3.amazonaws.com/snippets/lambda-roles.yaml
+      TemplateURL: https://raw.githubusercontent.com/komushi/grunt-aws-deploy/master/cfn/lambda-roles.yaml
       TimeoutInMinutes: '10'
   CustomAuth:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://s3-eu-west-1.amazonaws.com/rosa-lambda-artifacts/cfn/lambda.yaml
+      TemplateURL: https://raw.githubusercontent.com/komushi/grunt-aws-deploy/master/cfn/lambda.yaml
       TimeoutInMinutes: '10'
       Parameters:
         LambdaFunctionName:

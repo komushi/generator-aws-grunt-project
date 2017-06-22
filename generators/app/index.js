@@ -107,20 +107,17 @@ module.exports = class extends Generator {
     /**********************************/
     const done = this.async();
 
+    let thisProps = this.props;
+
+    const AWS = require('aws-sdk');
+    
+    const credentials = new AWS.SharedIniFileCredentials({profile: 'default'});
+    AWS.config.credentials = credentials;
+
     if (this.props.uploadCfn) {  
-
-      let thisProps = this.props;
-
-      const AWS = require('aws-sdk');
-      
-      const credentials = new AWS.SharedIniFileCredentials({profile: 'default'});
-      AWS.config.credentials = credentials;
-      let bucketName;
-
       createBucketName(AWS, thisProps.name)
         .then ((data) => {
-          thisProps.bucketName = data;
-
+          thisProps.bucketName = data
           return createBucket (AWS, thisProps.bucketName, process.env.AWS_DEFAULT_REGION || thisProps.region);
         })
         .then(() => {
@@ -145,6 +142,12 @@ module.exports = class extends Generator {
         .catch((err) => {
           console.error(err);
         });
+    } else {
+      createBucketName(AWS, thisProps.name)
+        .then ((data) => {
+          thisProps.bucketName = data
+          done();
+        })
     }
   }
 

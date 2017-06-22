@@ -54,12 +54,6 @@ module.exports = class extends Generator {
         message: 'Version',
         default: this.props.version
       }, 
-      // {
-      //   type: 'input',
-      //   name: 'homepage',
-      //   message: 'Project homepage url',
-      //   default: this.props.homepage
-      // }, 
       {
         type: 'input',
         name: 'region',
@@ -89,6 +83,12 @@ module.exports = class extends Generator {
       },
       {
         type: 'confirm',
+        name: 'uploadCfn',
+        message: 'Would you like to create a S3 bucket and upload cloudformation templates?',
+        default: true
+      },
+      {
+        type: 'confirm',
         name: 'installDependencies',
         message: 'Would you like to install dependencies?',
         default: false
@@ -99,6 +99,53 @@ module.exports = class extends Generator {
       // To access props later use this.props.someAnswer;
       this.props = props;
     });
+  }
+
+  configuring() {
+    /**********************************/
+    /*   cfn template upload process  */
+    /**********************************/
+    const done = this.async();
+
+    if (this.props.uploadCfn) {  
+
+      let thisProps = this.props;
+
+      const AWS = require('aws-sdk');
+      
+      const credentials = new AWS.SharedIniFileCredentials({profile: 'default'});
+      AWS.config.credentials = credentials;
+      let bucketName;
+
+      createBucketName(AWS, thisProps.name)
+        .then ((data) => {
+          thisProps.bucketName = data;
+
+          return createBucket (AWS, thisProps.bucketName, process.env.AWS_DEFAULT_REGION || thisProps.region);
+        })
+        .then(() => {
+          const cfnLambda = this.fs.read(this.templatePath('integration/cfn/template/lambda.yaml'));
+          const promiseCfnLambda = uploadCfn(AWS, thisProps.bucketName, 'cfn/lambda.yaml', cfnLambda);
+
+          const cfnLambdaRoles = this.fs.read(this.templatePath('integration/cfn/template/lambda-roles.yaml'));
+          const promiseCfnLambdaRoles = uploadCfn(AWS, thisProps.bucketName, 'cfn/lambda-roles.yaml', cfnLambdaRoles);
+
+          const cfnApiGwLambda = this.fs.read(this.templatePath('integration/cfn/template/api-gw-lambda.yaml'));
+          const promiseCfnApiGwLambda = uploadCfn(AWS, thisProps.bucketName, 'cfn/api-gw-lambda.yaml', cfnApiGwLambda);
+
+          const cfnApiGwRestApi = this.fs.read(this.templatePath('integration/cfn/template/api-gw-rest-api.yaml'));
+          const promiseCfnApiGwRestApi = uploadCfn(AWS, thisProps.bucketName, 'cfn/api-gw-rest-api.yaml', cfnApiGwRestApi);
+
+          Promise.all([promiseCfnLambda, promiseCfnLambdaRoles, promiseCfnApiGwLambda, promiseCfnApiGwRestApi]).then(values => { 
+            console.log(values);
+            done();
+          });
+
+        })
+        .catch((err) => {
+          console.error(err);
+        });
+    }
   }
 
   writing() {
@@ -395,6 +442,8 @@ module.exports = class extends Generator {
       Object.keys(paths).forEach(function(key) {
         delete paths[key].security;
       });
+
+      delete swaggerJson.securityDefinitions;
     }
 
     const swaggerYaml = yaml.safeDump(swaggerJson, {
@@ -408,9 +457,14 @@ module.exports = class extends Generator {
     /***************************/
     const cfnJson = yaml.safeLoad(this.fs.read(this.templatePath('integration/cfn/setup_resources.yaml')));
     cfnJson.Description = `Setup AWS Resources for ${this.props.name} API Service Backend`;
+    cfnJson.Resources.RestApiStack.Properties.TemplateURL = `http://${this.props.bucketName}.s3.amazonaws.com/cfn/api-gw-rest-api.yaml`;
+    cfnJson.Resources.ServiceLambdaRolesStack.Properties.TemplateURL = `http://${this.props.bucketName}.s3.amazonaws.com/cfn/lambda-roles.yaml`;
+    cfnJson.Resources.ServiceLambdaStack.Properties.TemplateURL = `http://${this.props.bucketName}.s3.amazonaws.com/cfn/api-gw-lambda.yaml`;
+    cfnJson.Resources.CustomAuthLambdaRoles.Properties.TemplateURL = `http://${this.props.bucketName}.s3.amazonaws.com/cfn/lambda-roles.yaml`;
+    cfnJson.Resources.CustomAuth.Properties.TemplateURL = `http://${this.props.bucketName}.s3.amazonaws.com/cfn/lambda.yaml`;
 
     if (!this.props.useCustomAuth) {
-      delete cfnJson.Parameters.CustomAuthLambdaName;
+      delete cfnJson.Parameters.CustomAuthLambda;
       delete cfnJson.Resources.LambdaInvokePolicy;
       delete cfnJson.Resources.AuthorizerInvokeRole;
       delete cfnJson.Resources.CustomAuthLambdaRoles;
@@ -444,3 +498,72 @@ module.exports = class extends Generator {
     }
   }
 };
+
+function createBucketName(AWS, serviceName) {
+  return new Promise((resolve, reject) => {
+      const iam = new AWS.IAM({apiVersion: '2010-05-08'});
+      iam.getUser({}, function(err, data) {
+        if (!err) {
+          const accountId = data.User.Arn.split(':')[4];
+          const username = data.User.UserName;
+          const bucket = accountId + '-' + username + '-' + serviceName;
+          resolve(bucket);
+        } else {
+          reject(err);
+        }
+      });
+  }); 
+}
+
+function createBucket(AWS, bucketName, awsRegionS3) {
+  return new Promise((resolve, reject) => {
+    const s3 = new AWS.S3({
+      //signatureVersion: 'v4',
+      apiVersion: '2006-03-01'
+    });
+
+    const params = {
+      Bucket: bucketName,
+      ACL: 'public-read',
+      CreateBucketConfiguration: { LocationConstraint:  awsRegionS3 }
+    };
+    console.log('s3CreateBucket params::::::', params)
+    s3.createBucket(params, function(err, data) {
+      if (err) {
+        // console.error('err', err); // an error occurred
+        if (err.code === 'BucketAlreadyOwnedByYou') {
+          console.log('this error is ok'); // an error occurred
+          resolve(bucketName);
+        }
+        reject(err);
+      } else {
+        console.log(data);
+        resolve(bucketName);
+      }
+    });
+  }); 
+}
+
+function uploadCfn(AWS, bucketName, key, body) {
+  return new Promise((resolve, reject) => {
+    const s3 = new AWS.S3({
+      //signatureVersion: 'v4',
+      apiVersion: '2006-03-01'
+    });
+
+    var params = {
+      ACL: "public-read",
+      Body: body, 
+      Bucket: bucketName, 
+      Key: key, 
+    };
+    s3.putObject(params, function(err, data) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(data);
+      }
+    });
+
+  }); 
+}
